@@ -9,13 +9,14 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {AMLSwapHook} from "./AMLSwapHook.sol";
 import {WINR} from "./WINR.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title PoolFactory - Factory for creating wINR/ETH pools with AML hooks
  * @dev This factory creates Uniswap V4 pools with integrated AML compliance hooks
  * @notice Designed for CBDC-backed payment systems
  */
-contract PoolFactory is Ownable {
+contract PoolFactory is Ownable, Pausable {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     
@@ -30,6 +31,12 @@ contract PoolFactory is Ownable {
     
     // Mapping to track created pools
     mapping(PoolId => bool) public pools;
+    
+    // Mapping to store pool keys by pool ID
+    mapping(PoolId => PoolKey) public poolKeys;
+    
+    // Array to track all created pool IDs for enumeration
+    PoolId[] public allPools;
     
     // Events
     event PoolCreated(
@@ -65,7 +72,7 @@ contract PoolFactory is Ownable {
         uint24 fee,
         int24 tickSpacing,
         uint160 initialSqrtPriceX96
-    ) external onlyOwner returns (PoolId poolId, address hook) {
+    ) external onlyOwner whenNotPaused returns (PoolId poolId, address hook) {
         // Deploy AML hook
         hook = address(new AMLSwapHook(poolManager, wINR));
         
@@ -86,6 +93,8 @@ contract PoolFactory is Ownable {
         
         // Mark pool as created
         pools[poolId] = true;
+        poolKeys[poolId] = key;
+        allPools.push(poolId);
         
         emit PoolCreated(poolId, hook, fee, tickSpacing);
         
@@ -132,25 +141,40 @@ contract PoolFactory is Ownable {
      * @param poolId Pool ID
      * @return Pool key
      */
-    function getPoolKey(PoolId poolId) external pure returns (PoolKey memory) {
-        // This is a simplified version - in production, you'd store and retrieve
-        // the actual pool key from storage
-        revert("PoolFactory: Pool key retrieval not implemented");
+    function getPoolKey(PoolId poolId) external view returns (PoolKey memory) {
+        require(pools[poolId], "PoolFactory: Pool does not exist");
+        return poolKeys[poolId];
     }
     
     /**
      * @dev Emergency function to pause pool creation (only owner)
      */
     function pausePoolCreation() external onlyOwner {
-        // Implementation would depend on your specific requirements
-        revert("PoolFactory: Pause functionality not implemented");
+        _pause();
     }
     
     /**
      * @dev Emergency function to resume pool creation (only owner)
      */
     function resumePoolCreation() external onlyOwner {
-        // Implementation would depend on your specific requirements
-        revert("PoolFactory: Resume functionality not implemented");
+        _unpause();
+    }
+    
+    /**
+     * @dev Get the total number of created pools
+     * @return Total number of pools
+     */
+    function getTotalPools() external view returns (uint256) {
+        return allPools.length;
+    }
+    
+    /**
+     * @dev Get a pool ID by index
+     * @param index Index in the pools array
+     * @return Pool ID
+     */
+    function getPoolByIndex(uint256 index) external view returns (PoolId) {
+        require(index < allPools.length, "PoolFactory: Index out of bounds");
+        return allPools[index];
     }
 }

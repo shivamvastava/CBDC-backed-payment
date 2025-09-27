@@ -242,6 +242,15 @@ contract TokenConversionService is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Get conversion rate for a token
+     * @param token Token address
+     * @return Conversion rate
+     */
+    function getConversionRate(address token) external view returns (uint256) {
+        return conversionRates[token];
+    }
+    
+    /**
      * @dev Emergency function to withdraw stuck tokens (only owner)
      * @param token Token address to withdraw
      * @param amount Amount to withdraw

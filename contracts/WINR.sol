@@ -141,4 +141,12 @@ contract WINR is ERC20, Ownable, Pausable {
     function isBlacklisted(address account) external view returns (bool) {
         return blacklisted[account];
     }
+    
+    /**
+     * @dev Get the remaining mintable supply
+     * @return Remaining mintable amount
+     */
+    function getRemainingMintableSupply() external view returns (uint256) {
+        return MAX_SUPPLY - totalSupply();
+    }
 }
