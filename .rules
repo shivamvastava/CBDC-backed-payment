@@ -8,8 +8,7 @@
 
 ## Key Dependencies & Libraries
 - **OpenZeppelin Contracts**: Security-audited contract standards (access control, ERC20, pausable, reentrancy guards)
-- **Uniswap V4 Core**: Next-generation DEX infrastructure (hooks, pool management)
-- **Uniswap V4 Periphery**: Helper contracts and utilities for V4 integration
+
 - **Forge Std**: Testing utilities and script framework
 
 ## Project Architecture & Components
@@ -25,15 +24,13 @@
 
 3. **SimpleAMLHook.sol**: Simplified AML compliance contract (active)
    - Features: blacklist management, token authorization, conversion rates
-   - Note: Simplified version without Uniswap V4 dependencies
+   - Note: Simplified version with no external DEX dependencies
 
 4. **SimplePoolFactory.sol**: Simplified pool management (active)
    - Features: pool creation, management, pause/resume functionality
    - Note: Simplified version for basic pool operations
 
-5. **Disabled Contracts**: Complex V4 integration contracts (*.disabled)
-   - AMLSwapHook.sol.disabled: Full Uniswap V4 hook implementation
-   - PoolFactory.sol.disabled: Advanced pool factory with V4 integration
+
 
 ### Project Structure
 ```
@@ -54,7 +51,7 @@
 
 ### Deployment & Scripts (`/script/`)
 - **SimpleDeploy.s.sol**: Main deployment script for core contracts
-- **Disabled Scripts**: Advanced deployment scripts for V4 integration
+
 - **Environment**: Configuration via env.example (RPC URLs, keys, parameters)
 
 ## Build & Development Tools
@@ -165,6 +162,6 @@ make clean                       # Clean artifacts
 
 ## Project Status
 - **Active Contracts**: Simplified versions for core functionality
-- **V4 Integration**: Advanced Uniswap V4 contracts available but disabled
+
 - **Production Ready**: Core contracts tested and deployable
-- **Roadmap**: Full V4 integration, mobile app, multi-chain support
+- **Roadmap**: Extended integrations, mobile app, multi-chain support
