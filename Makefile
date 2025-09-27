@@ -1,6 +1,6 @@
 # Makefile for CBDC-Backed Payments System
 
-.PHONY: help build test test-verbose test-gas clean deploy-local deploy-sepolia deploy-mainnet setup lint coverage
+.PHONY: help build test test-verbose test-gas clean deploy-local deploy-sepolia deploy-mainnet lint coverage
 
 # Default target
 help:
@@ -19,7 +19,7 @@ help:
 	@echo "  deploy-local   - Deploy to local network"
 	@echo "  deploy-sepolia - Deploy to Sepolia testnet"
 	@echo "  deploy-mainnet - Deploy to mainnet"
-	@echo "  setup          - Run post-deployment setup"
+
 	@echo ""
 	@echo "Utilities:"
 	@echo "  install        - Install dependencies"
@@ -51,16 +51,15 @@ clean:
 
 # Deployment commands
 deploy-local:
-	forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+	forge script script/SimpleDeploy.s.sol --rpc-url http://localhost:8545 --broadcast
 
 deploy-sepolia:
-	forge script script/Deploy.s.sol --rpc-url $$SEPOLIA_RPC_URL --broadcast --verify
+	forge script script/SimpleDeploy.s.sol --rpc-url $$SEPOLIA_RPC_URL --broadcast --verify
 
 deploy-mainnet:
-	forge script script/Deploy.s.sol --rpc-url $$MAINNET_RPC_URL --broadcast --verify
+	forge script script/SimpleDeploy.s.sol --rpc-url $$MAINNET_RPC_URL --broadcast --verify
 
-setup:
-	forge script script/Setup.s.sol --rpc-url $$SEPOLIA_RPC_URL --broadcast
+
 
 # Utility commands
 install:
@@ -79,14 +78,12 @@ gas-report:
 test-winr:
 	forge test --match-contract WINRTest
 
-test-aml:
-	forge test --match-contract AMLSwapHookTest
+
 
 test-conversion:
 	forge test --match-contract TokenConversionServiceTest
 
-test-integration:
-	forge test --match-contract IntegrationTest
+
 
 # Security and analysis
 slither:

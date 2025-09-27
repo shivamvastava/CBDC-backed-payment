@@ -9,14 +9,11 @@ The system consists of core smart contracts that implement the CBDC transaction 
 ### Core Contracts
 
 - **WINR Token** (`contracts/WINR.sol`): ERC20 token representing Wrapped Indian Rupee with built-in compliance features
-- **SimpleAMLHook** (`contracts/SimpleAMLHook.sol`): AML compliance checking with blacklist management  
+- **SimpleAMLHook** (`contracts/SimpleAMLHook.sol`): AML compliance checking with blacklist management
 - **TokenConversionService** (`contracts/TokenConversionService.sol`): Multi-token conversion to wINR with daily limits
 - **SimplePoolFactory** (`contracts/SimplePoolFactory.sol`): Automated pool creation and management
 
-### V4 Integration Contracts (Advanced)
 
-- **AMLSwapHook** (Uniswap V4): Advanced AML hook with real-time swap intervention
-- **PoolFactory** (Uniswap V4): Full Uniswap V4 pool factory with integrated compliance
 
 ## ✨ Features
 
@@ -47,14 +44,11 @@ The system consists of core smart contracts that implement the CBDC transaction 
 
 ### ✅ Production Ready Components
 - **WINR Token**: Fully tested ERC20 with compliance features (16 tests, 90% coverage)
-- **Token Conversion Service**: Complete conversion system (18 tests, 64% coverage) 
+- **Token Conversion Service**: Complete conversion system (18 tests, 64% coverage)
 - **Simple AML Hook**: Basic AML checking (8 functions, 100% line coverage)
 - **Simple Pool Factory**: Pool management system (8 functions, 95% coverage)
 
-### 🔧 Advanced Components (In Development)
-- **Uniswap V4 Integration**: Full V4 hook implementation with swap intervention
-- **Advanced Pool Factory**: Complex pool management with V4 integration
-- **IPFS Integration**: Decentralized transaction storage and hash management
+
 
 ## 🚀 Getting Started
 
@@ -97,7 +91,7 @@ Ran 3 test suites: 43 tests passed, 0 failed, 0 skipped
 
 Coverage Summary:
 - SimpleAMLHook: 100% lines, 54.55% branches, 100% functions
-- SimplePoolFactory: 95.83% lines, 50% branches, 100% functions  
+- SimplePoolFactory: 95.83% lines, 50% branches, 100% functions
 - TokenConversionService: 64.18% lines, 39.39% branches, 76.47% functions
 - WINR Token: 90% lines, 85% branches, 84.62% functions
 - Total: 81.53% lines, 55.41% branches, 86.96% functions
@@ -134,7 +128,7 @@ PRIVATE_KEY=your_key forge script script/SimpleDeploy.s.sol \
 The system implements the complete CBDC transaction flow:
 
 1. **User Initiation**: User initiates wINR transaction
-2. **AML Check**: Real-time blacklist verification  
+2. **AML Check**: Real-time blacklist verification
 3. **Token Conversion**: Automatic conversion of non-wINR tokens
 4. **Pool Management**: Automated liquidity pool operations
 5. **Compliance Tracking**: Full audit trail and reporting
@@ -170,7 +164,7 @@ amlHook.updateBlacklist(addressToUnblock, false);
 The contracts are optimized for gas efficiency:
 
 - **WINR Token Deployment**: 1,092,379 gas
-- **Simple AML Hook**: 435,838 gas  
+- **Simple AML Hook**: 435,838 gas
 - **Typical Transfer**: ~57,448 gas
 - **AML Check**: ~38,482 gas
 - **Pool Creation**: ~111,532 gas
@@ -187,7 +181,7 @@ forge test --match-contract TokenConversionServiceTest
 
 # Run with different verbosity
 forge test -v    # basic
-forge test -vv   # medium  
+forge test -vv   # medium
 forge test -vvv  # high
 ```
 
