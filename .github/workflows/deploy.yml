@@ -18,7 +18,7 @@ on:
         required: true
         type: string
       pool_manager_address:
-        description: 'Uniswap V4 PoolManager address'
+        description: 'Uniswap V4 PoolManager address (optional)'
         required: false
         type: string
         default: '0x0000000000000000000000000000000000000000'
@@ -39,8 +39,10 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install dependencies
-        run: forge install
+      - name: Initialize submodules and install dependencies
+        run: |
+          git submodule update --init --recursive
+          forge install --no-commit
 
       - name: Build contracts
         run: forge build
@@ -53,7 +55,9 @@ jobs:
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
         run: |
           echo "Deploying to ${{ inputs.network }}..."
-          forge script script/Deploy.s.sol \
+          
+          # Use the simple deployment script that works with current contracts
+          forge script script/SimpleDeploy.s.sol \
             --rpc-url $RPC_URL \
             --private-key $PRIVATE_KEY \
             --broadcast \
