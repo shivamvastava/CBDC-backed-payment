@@ -9,7 +9,7 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {AMLSwapHook} from "./AMLSwapHook.sol";
 import {WINR} from "./WINR.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title PoolFactory - Factory for creating wINR/ETH pools with AML hooks

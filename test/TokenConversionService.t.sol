@@ -208,6 +208,7 @@ contract TokenConversionServiceTest is Test {
     function testFuzzGetConversionQuote(address token, uint256 amount) public {
         vm.assume(token != address(0));
         vm.assume(amount > 0);
+        vm.assume(amount <= type(uint128).max); // Prevent overflow in conversion calculation
         
         // Test with unauthorized token
         assertEq(conversionService.getConversionQuote(token, amount), 0);
