@@ -33,7 +33,7 @@ contract WINR is ERC20, Ownable, Pausable {
      * @dev Constructor that initializes the wINR token
      * @param initialSupply Initial supply of tokens to mint to the owner
      */
-    constructor(uint256 initialSupply) ERC20("Wrapped Indian Rupee", "wINR") {
+    constructor(uint256 initialSupply) ERC20("Wrapped Indian Rupee", "wINR") Ownable(msg.sender) {
         require(initialSupply <= MAX_SUPPLY, "WINR: Initial supply exceeds maximum");
         
         // Mint initial supply to the owner
@@ -99,15 +99,10 @@ contract WINR is ERC20, Ownable, Pausable {
     }
     
     /**
-     * @dev Override transfer to include blacklist and pause checks
+     * @dev Override _update to include blacklist and pause checks
+     * @dev This replaces _beforeTokenTransfer in OpenZeppelin v5
      */
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override {
-        super._beforeTokenTransfer(from, to, amount);
-        
+    function _update(address from, address to, uint256 value) internal override {
         // Check if contract is paused
         require(!paused(), "WINR: Token transfers are paused");
         
@@ -118,6 +113,8 @@ contract WINR is ERC20, Ownable, Pausable {
         if (to != address(0)) {
             require(!blacklisted[to], "WINR: Recipient is blacklisted");
         }
+        
+        super._update(from, to, value);
     }
     
     /**

@@ -56,7 +56,6 @@ contract IntegrationTest is Test {
     
     function testCompleteSystemSetup() public {
         // Test that all contracts are deployed correctly
-        assertEq(winr.wINR(), address(winr));
         assertEq(hook.wINR(), address(winr));
         assertEq(conversionService.wINR(), address(winr));
         assertEq(poolFactory.wINR(), address(winr));

@@ -5,6 +5,7 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
+import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {AMLSwapHook} from "./AMLSwapHook.sol";
 import {WINR} from "./WINR.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -44,7 +45,7 @@ contract PoolFactory is Ownable {
      * @param _poolManager Uniswap V4 PoolManager address
      * @param _wINR wINR token address
      */
-    constructor(IPoolManager _poolManager, address _wINR) {
+    constructor(IPoolManager _poolManager, address _wINR) Ownable(msg.sender) {
         require(address(_poolManager) != address(0), "PoolFactory: Invalid PoolManager");
         require(_wINR != address(0), "PoolFactory: Invalid wINR address");
         
@@ -74,7 +75,7 @@ contract PoolFactory is Ownable {
             currency1: Currency.wrap(ETH),
             fee: fee,
             tickSpacing: tickSpacing,
-            hooks: AMLSwapHook(hook)
+            hooks: Hooks.wrap(hook)
         });
         
         // Get pool ID

@@ -59,7 +59,7 @@ contract TokenConversionService is Ownable, ReentrancyGuard, Pausable {
      * @dev Constructor
      * @param _wINR wINR token address
      */
-    constructor(address _wINR) {
+    constructor(address _wINR) Ownable(msg.sender) {
         require(_wINR != address(0), "TokenConversionService: Invalid wINR address");
         wINR = _wINR;
     }

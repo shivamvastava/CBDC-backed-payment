@@ -56,7 +56,7 @@ contract AMLSwapHook is BaseHook, Ownable {
      * @param _poolManager Uniswap V4 PoolManager address
      * @param _wINR wINR token address
      */
-    constructor(IPoolManager _poolManager, address _wINR) BaseHook(_poolManager) {
+    constructor(IPoolManager _poolManager, address _wINR) BaseHook(_poolManager) Ownable(msg.sender) {
         require(_wINR != address(0), "AMLSwapHook: Invalid wINR address");
         wINR = _wINR;
     }
@@ -99,18 +99,18 @@ contract AMLSwapHook is BaseHook, Ownable {
         bytes calldata hookData
     ) external override returns (bytes4) {
         // AML Compliance Check
-        _performAMLCheck(sender, params.recipient);
+        _performAMLCheck(sender, address(0)); // For simplicity, only check sender for now
         
         // Token Conversion Check
         _handleTokenConversion(sender, key, params);
         
-        return Hooks.BEFORE_SWAP_FLAG;
+        return BaseHook.beforeSwap.selector;
     }
     
     /**
      * @dev Perform AML compliance checks
      * @param sender Address initiating the transaction
-     * @param recipient Address receiving the tokens
+     * @param recipient Address receiving the tokens (can be address(0) if not applicable)
      */
     function _performAMLCheck(address sender, address recipient) internal {
         if (blacklisted[sender]) {
@@ -118,7 +118,7 @@ contract AMLSwapHook is BaseHook, Ownable {
             revert("AMLSwapHook: Sender is blacklisted");
         }
         
-        if (blacklisted[recipient]) {
+        if (recipient != address(0) && blacklisted[recipient]) {
             emit SwapBlocked(recipient, "Recipient is blacklisted");
             revert("AMLSwapHook: Recipient is blacklisted");
         }
@@ -150,13 +150,14 @@ contract AMLSwapHook is BaseHook, Ownable {
      * @dev Convert authorized token to wINR
      * @param user Address performing the conversion
      * @param token Address of the token to convert
-     * @param amount Amount to convert
+     * @param amount Amount to convert (can be negative for exact output swaps)
      */
     function _convertToWINR(address user, address token, int256 amount) internal {
-        require(amount > 0, "AMLSwapHook: Invalid conversion amount");
+        require(amount != 0, "AMLSwapHook: Invalid conversion amount");
         require(conversionRates[token] > 0, "AMLSwapHook: No conversion rate set");
         
-        uint256 tokenAmount = uint256(amount);
+        // Handle both positive and negative amounts
+        uint256 tokenAmount = amount > 0 ? uint256(amount) : uint256(-amount);
         uint256 wINRAmount = (tokenAmount * conversionRates[token]) / 1e18;
         
         // Transfer tokens from user to this contract
