@@ -34,7 +34,7 @@ jobs:
       - name: Initialize submodules and install dependencies
         run: |
           git submodule update --init --recursive
-          forge install --no-commit
+          forge install
 
       - name: Run Forge fmt
         run: |
@@ -77,7 +77,7 @@ jobs:
       - name: Initialize submodules and install dependencies
         run: |
           git submodule update --init --recursive
-          forge install --no-commit
+          forge install
 
       - name: Run coverage
         run: |
