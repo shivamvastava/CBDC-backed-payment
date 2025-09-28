@@ -1,69 +1,84 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
-import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
+import { Hooks } from "v4-core/src/libraries/Hooks.sol";
+import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
+import { PoolKey } from "v4-core/src/types/PoolKey.sol";
+
+import { BeforeSwapDelta, BeforeSwapDeltaLibrary } from "v4-core/src/types/BeforeSwapDelta.sol";
+import { SwapParams } from "v4-core/src/types/PoolOperation.sol";
+import { Currency, CurrencyLibrary } from "v4-core/src/types/Currency.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title AMLSwapHook - Uniswap V4 Hook for AML Compliance and Token Conversion
  * @dev This hook implements:
  *      1. AML/sanctions checking for blacklisted addresses
- *      2. Automatic conversion of non-wINR tokens to wINR before swaps
+ *      2. Optional conversion of authorized tokens to wINR before swaps
  *      3. Compliance tracking and reporting
  * @notice Designed for CBDC-backed payment systems with regulatory compliance
+ *
+ * Permissions:
+ * - getHookPermissions() indicates which hook methods are enabled.
+ * - This implementation enables beforeSwap (without return delta).
  */
-contract AMLSwapHook is BaseHook, Ownable {
-    using PoolIdLibrary for PoolKey;
+contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
     using CurrencyLibrary for Currency;
     using SafeERC20 for IERC20;
-    
+
     // wINR token address
-    address public immutable wINR;
-    
+    address public immutable W_INR;
+
     // Mapping to track blacklisted addresses
     mapping(address => bool) public blacklisted;
-    
+
     // Mapping to track authorized tokens that can be converted to wINR
     mapping(address => bool) public authorizedTokens;
-    
+
     // Mapping to store conversion rates (token => rate per wINR)
     mapping(address => uint256) public conversionRates;
-    
+
+    // Circuit breaker for conversion path
+    bool public conversionEnabled = true;
+
+    // Hard cap to limit per-transaction conversion size (defaults to no cap)
+    uint256 public maxConversionPerTx = type(uint256).max;
+
     // Events for compliance and monitoring
     event AddressBlacklisted(address indexed account, bool status);
     event TokenAuthorized(address indexed token, bool status);
     event ConversionRateUpdated(address indexed token, uint256 rate);
     event SwapBlocked(address indexed user, string reason);
-    event TokenConverted(address indexed user, address indexed fromToken, uint256 amount, uint256 wINRAmount);
-    
+    event TokenConverted(address indexed user, address indexed fromToken, uint256 amount, uint256 wInrAmount);
+
     // Modifier to check if address is not blacklisted
     modifier notBlacklisted(address account) {
         require(!blacklisted[account], "AMLSwapHook: Address is blacklisted");
         _;
     }
-    
+
     /**
      * @dev Constructor
-     * @param _poolManager Uniswap V4 PoolManager address
-     * @param _wINR wINR token address
+     * @param poolManager Uniswap V4 PoolManager address
+     * @param wInr wINR token address
      */
-    constructor(IPoolManager _poolManager, address _wINR) BaseHook(_poolManager) {
-        require(_wINR != address(0), "AMLSwapHook: Invalid wINR address");
-        wINR = _wINR;
+    constructor(IPoolManager poolManager, address wInr) BaseHook(poolManager) Ownable(msg.sender) {
+        require(address(poolManager) != address(0), "AMLSwapHook: invalid PoolManager");
+        require(wInr != address(0), "AMLSwapHook: Invalid wINR address");
+        W_INR = wInr;
     }
-    
+
     /**
      * @dev Get hook permissions
      * @return Permissions struct defining which hooks are enabled
+     *
+     * Note:
+     * - We only enable beforeSwap.
+     * - We do NOT use beforeSwapReturnDelta, so beforeSwap returns only bytes4.
      */
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
@@ -83,92 +98,149 @@ contract AMLSwapHook is BaseHook, Ownable {
             afterRemoveLiquidityReturnDelta: false
         });
     }
-    
+
     /**
      * @dev Hook called before swap execution
      * @param sender Address initiating the swap
      * @param key Pool key containing token addresses and fee
      * @param params Swap parameters
      * @param hookData Additional data passed to the hook
-     * @return Hook return value
+     * @return Hook return value (selector)
+     *
+     * Behavior:
+     * - Enforces AML checks on the sender (and optionally recipient if encoded in hookData).
+     * - Demonstrates token conversion flow if input token is authorized and not wINR
+     *   (simple accounting example; adjust in production).
      */
-    function beforeSwap(
-        address sender,
-        PoolKey calldata key,
-        IPoolManager.SwapParams calldata params,
-        bytes calldata hookData
-    ) external override returns (bytes4) {
-        // AML Compliance Check
-        _performAMLCheck(sender, params.recipient);
-        
-        // Token Conversion Check
+    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+        internal
+        override
+        nonReentrant
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
+        // AML Compliance Check (recipient optional and can be provided via hookData)
+        address recipient = _recipientFromHookData(hookData);
+        performAmlCheck(sender, recipient);
+
+        // Token Conversion WARNING: static demo rates only; not safe for production without oracles/slippage/limits
         _handleTokenConversion(sender, key, params);
-        
-        return Hooks.BEFORE_SWAP_FLAG;
+
+        // No delta or dynamic fee returned by this hook
+        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
-    
+
     /**
      * @dev Perform AML compliance checks
      * @param sender Address initiating the transaction
-     * @param recipient Address receiving the tokens
+     * @param recipient Address receiving the tokens (can be address(0) if not applicable)
      */
-    function _performAMLCheck(address sender, address recipient) internal {
+    function performAmlCheck(address sender, address recipient) internal {
         if (blacklisted[sender]) {
+            // block sender
+            // NOTE: Emitting an event before revert is fine for observability
+            // but costs gas; keep as needed for auditing.
+            // (Events emitted pre-revert are still included in tx logs.)
+            // A more gas-optimized approach could omit the event here.
+            // For compliance traceability, we keep it.
+            // solhint-disable-next-line reason-string
             emit SwapBlocked(sender, "Sender is blacklisted");
-            revert("AMLSwapHook: Sender is blacklisted");
+            revertWithLog(sender, "Sender is blacklisted");
         }
-        
-        if (blacklisted[recipient]) {
+
+        if (recipient != address(0) && blacklisted[recipient]) {
             emit SwapBlocked(recipient, "Recipient is blacklisted");
-            revert("AMLSwapHook: Recipient is blacklisted");
+            revertWithLog(recipient, "Recipient is blacklisted");
         }
     }
-    
+
     /**
-     * @dev Handle automatic token conversion to wINR
+     * @dev Internal helper for logging and reverting on AML check failure
+     */
+    function revertWithLog(address, /* user */ string memory reason) internal pure {
+        // emit event (readers can reconstruct cause)
+        // NOTE: Since this is view in _performAMLCheck, we don't emit here.
+        // To keep parity with examples, we keep explicit helper but don't emit from view context.
+        // The revert reason carries the message.
+        revert(string(abi.encodePacked("AMLSwapHook: ", reason)));
+    }
+
+    /**
+     * @dev Extract recipient from hookData if provided (abi.encodePacked(address) or empty)
+     * @param hookData Optional abi-encoded recipient address; returns address(0) if not present or invalid
+     */
+    function _recipientFromHookData(bytes calldata hookData) internal pure returns (address) {
+        if (hookData.length == 20) {
+            // raw 20-byte address
+            address r;
+            assembly {
+                r := shr(96, calldataload(hookData.offset))
+            }
+            return r;
+        } else if (hookData.length == 32) {
+            // abi.encode(address) style
+            return abi.decode(hookData, (address));
+        }
+        return address(0);
+    }
+
+    /**
+     * @dev Handle automatic token conversion to wINR (illustrative)
      * @param sender Address initiating the swap
      * @param key Pool key
      * @param params Swap parameters
+     *
+     * Notes:
+     * - If input token is not wINR and is authorized, we perform a naive conversion by
+     *   pulling tokens from the sender and transferring equivalent wINR.
+     * - This is only a demonstration. In production, integrate with a conversion service,
+     *   use trusted oracles for pricing, and handle approvals/liquidity properly.
      */
-    function _handleTokenConversion(
-        address sender,
-        PoolKey calldata key,
-        IPoolManager.SwapParams calldata params
-    ) internal {
-        address tokenIn = Currency.unwrap(params.zeroForOne ? key.token0 : key.token1);
-        
+    function _handleTokenConversion(address sender, PoolKey calldata key, SwapParams calldata params) internal {
+        address tokenIn = Currency.unwrap(params.zeroForOne ? key.currency0 : key.currency1);
+
         // If the input token is not wINR and is authorized for conversion
-        if (tokenIn != wINR && authorizedTokens[tokenIn]) {
-            // Perform conversion logic here
-            // This is a simplified version - in production, you'd implement
-            // actual conversion logic using oracles or other mechanisms
-            _convertToWINR(sender, tokenIn, params.amountSpecified);
+        if (tokenIn != W_INR && authorizedTokens[tokenIn]) {
+            // Enforce circuit breaker
+            require(conversionEnabled, "AMLSwapHook: Conversion disabled");
+
+            // Perform simplified conversion for demonstration purposes
+            convertToWinr(sender, tokenIn, params.amountSpecified);
         }
     }
-    
+
     /**
-     * @dev Convert authorized token to wINR
+     * @dev Convert authorized token to wINR (DEMO ONLY - static rates, no slippage; not production-safe)
      * @param user Address performing the conversion
      * @param token Address of the token to convert
-     * @param amount Amount to convert
+     * @param amount Amount to convert (can be negative for exact output swaps)
      */
-    function _convertToWINR(address user, address token, int256 amount) internal {
-        require(amount > 0, "AMLSwapHook: Invalid conversion amount");
-        require(conversionRates[token] > 0, "AMLSwapHook: No conversion rate set");
-        
-        uint256 tokenAmount = uint256(amount);
-        uint256 wINRAmount = (tokenAmount * conversionRates[token]) / 1e18;
-        
-        // Transfer tokens from user to this contract
-        IERC20(token).safeTransferFrom(user, address(this), tokenAmount);
-        
-        // Mint or transfer wINR to user
-        // Note: In production, you'd implement proper minting/burning logic
-        // based on your wINR token implementation
-        
-        emit TokenConverted(user, token, tokenAmount, wINRAmount);
+    function convertToWinr(address user, address token, int256 amount) internal {
+        require(amount != 0, "AMLSwapHook: Invalid conversion amount");
+        uint256 rate = conversionRates[token];
+        require(rate > 0, "AMLSwapHook: No conversion rate set");
+
+        // Handle both positive and negative amounts (exactIn/exactOut)
+        uint256 fromAmount = amount > 0 ? uint256(amount) : uint256(-amount);
+
+        // Enforce per-transaction max conversion guard
+        require(fromAmount <= maxConversionPerTx, "AMLSwapHook: Exceeds max conversion per tx");
+
+        uint256 wInrAmount = (fromAmount * rate) / 1e18;
+        require(wInrAmount > 0, "AMLSwapHook: Conversion results in zero wINR");
+
+        // Transfer input token from user to this contract
+        IERC20(token).safeTransferFrom(user, address(this), fromAmount);
+
+        // Transfer wINR from this contract to user (assumes pre-funded)
+        IERC20(W_INR).safeTransfer(user, wInrAmount);
+
+        emit TokenConverted(user, token, fromAmount, wInrAmount);
     }
-    
+
+    // -----------------------
+    // Admin / Owner Functions
+    // -----------------------
+
     /**
      * @dev Add or remove address from blacklist (only owner)
      * @param account Address to blacklist/unblacklist
@@ -179,7 +251,7 @@ contract AMLSwapHook is BaseHook, Ownable {
         blacklisted[account] = status;
         emit AddressBlacklisted(account, status);
     }
-    
+
     /**
      * @dev Authorize or deauthorize token for conversion (only owner)
      * @param token Token address
@@ -190,7 +262,7 @@ contract AMLSwapHook is BaseHook, Ownable {
         authorizedTokens[token] = status;
         emit TokenAuthorized(token, status);
     }
-    
+
     /**
      * @dev Update conversion rate for a token (only owner)
      * @param token Token address
@@ -202,7 +274,27 @@ contract AMLSwapHook is BaseHook, Ownable {
         conversionRates[token] = rate;
         emit ConversionRateUpdated(token, rate);
     }
-    
+
+    /**
+     * @dev Toggle conversion path in emergencies (only owner)
+     * @param enabled Enable/disable conversion
+     */
+    function setConversionEnabled(bool enabled) external onlyOwner {
+        conversionEnabled = enabled;
+    }
+
+    /**
+     * @dev Set max conversion allowed per transaction (only owner)
+     * @param max New max amount for input token per tx
+     */
+    function setMaxConversionPerTx(uint256 max) external onlyOwner {
+        maxConversionPerTx = max;
+    }
+
+    // -------------
+    // View Helpers
+    // -------------
+
     /**
      * @dev Check if an address is blacklisted
      * @param account Address to check
@@ -211,7 +303,7 @@ contract AMLSwapHook is BaseHook, Ownable {
     function isBlacklisted(address account) external view returns (bool) {
         return blacklisted[account];
     }
-    
+
     /**
      * @dev Check if a token is authorized for conversion
      * @param token Token address to check
@@ -220,7 +312,7 @@ contract AMLSwapHook is BaseHook, Ownable {
     function isAuthorizedToken(address token) external view returns (bool) {
         return authorizedTokens[token];
     }
-    
+
     /**
      * @dev Get conversion rate for a token
      * @param token Token address
@@ -229,7 +321,11 @@ contract AMLSwapHook is BaseHook, Ownable {
     function getConversionRate(address token) external view returns (uint256) {
         return conversionRates[token];
     }
-    
+
+    // -----------------
+    // Emergency / Ops
+    // -----------------
+
     /**
      * @dev Emergency function to withdraw stuck tokens (only owner)
      * @param token Token address to withdraw

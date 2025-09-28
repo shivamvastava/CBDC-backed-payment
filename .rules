@@ -1,0 +1,167 @@
+# CBDC-Backed Payment System - Project Rules
+
+## Language & Core Technologies
+- **Primary Language**: Solidity ^0.8.24
+- **Build Tool**: Foundry (forge, cast, anvil, chisel)
+- **Package Manager**: Foundry's package management with git submodules
+- **Testing Framework**: Foundry Test (forge-std)
+
+## Key Dependencies & Libraries
+- **OpenZeppelin Contracts**: Security-audited contract standards (access control, ERC20, pausable, reentrancy guards)
+
+- **Forge Std**: Testing utilities and script framework
+
+## Project Architecture & Components
+
+### Core Smart Contracts (`/contracts/`)
+1. **WINR.sol**: ERC20 token representing Wrapped Indian Rupee (wINR)
+   - Features: minting, burning, blacklisting, pausable, max supply cap
+   - Compliance: Built-in AML compliance features
+
+2. **TokenConversionService.sol**: Service for converting authorized tokens to wINR
+   - Features: rate management, daily limits, minimum/maximum amounts
+   - Security: reentrancy protection, access controls
+
+3. **SimpleAMLHook.sol**: Simplified AML compliance contract (active)
+   - Features: blacklist management, token authorization, conversion rates
+   - Note: Simplified version with no external DEX dependencies
+
+4. **SimplePoolFactory.sol**: Simplified pool management (active)
+   - Features: pool creation, management, pause/resume functionality
+   - Note: Simplified version for basic pool operations
+
+
+
+### Project Structure
+```
+├── contracts/          # Smart contracts
+├── script/             # Deployment and setup scripts
+├── test/              # Test suites (unit + integration)
+├── lib/               # Dependencies (git submodules)
+├── out/               # Compiled artifacts
+└── cache/             # Build cache
+```
+
+### Testing Strategy (`/test/`)
+- **Unit Tests**: Individual contract testing (WINR.t.sol, TokenConversionService.t.sol)
+- **Integration Tests**: End-to-end system testing (SimpleIntegration.t.sol)
+- **Fuzz Testing**: Property-based testing with 10,000+ runs
+- **Gas Optimization**: Gas reporting and analysis
+- **Coverage**: Comprehensive test coverage analysis
+
+### Deployment & Scripts (`/script/`)
+- **SimpleDeploy.s.sol**: Main deployment script for core contracts
+
+- **Environment**: Configuration via env.example (RPC URLs, keys, parameters)
+
+## Build & Development Tools
+
+### Foundry Configuration (`foundry.toml`)
+- **Solidity Version**: 0.8.24
+- **Optimizer**: Enabled with 200 runs, via-IR compilation
+- **Testing**: Extensive fuzz testing (10K runs), invariant testing
+- **Formatting**: 120 character line length, consistent style
+
+### Development Commands (`Makefile` & `package.json`)
+```bash
+# Development
+make build / npm run build        # Compile contracts
+make test / npm run test          # Run all tests
+make test-verbose                 # Verbose test output
+make test-gas / npm run test:gas  # Gas reporting
+make coverage / npm run coverage  # Test coverage analysis
+make lint / npm run lint          # Format code
+
+# Deployment
+make deploy-local                 # Deploy to local network
+make deploy-sepolia              # Deploy to Sepolia testnet
+make deploy-mainnet              # Deploy to mainnet
+
+# Security
+make slither                     # Static analysis
+make mythril                     # Security analysis
+
+# Utilities
+make install                     # Install dependencies
+make clean                       # Clean artifacts
+```
+
+## CI/CD & Infrastructure
+
+### GitHub Actions (`.github/workflows/`)
+1. **ci.yml**: Continuous integration
+   - Build, test, format check, gas reporting
+   - Coverage analysis with Codecov integration
+   - Multi-profile testing (ci, lite profiles)
+
+2. **deploy.yml**: Automated deployment
+   - Multi-network support (sepolia, mainnet, localhost)
+   - Contract verification via Etherscan
+   - Artifact preservation and deployment summaries
+
+3. **security.yml**: Security analysis
+   - CodeQL analysis for JavaScript/TypeScript
+   - Mythril analysis for smart contract security
+   - Slither static analysis with vulnerability detection
+
+### Deployment Process
+1. **Environment Setup**: Configure .env file from env.example
+2. **Network Selection**: Choose target network (local/testnet/mainnet)
+3. **Contract Deployment**: Deploy core contracts via SimpleDeploy.s.sol
+4. **Verification**: Automatic contract verification on Etherscan
+5. **Configuration**: Post-deployment setup for operational parameters
+
+## Compliance & Security Features
+
+### AML (Anti-Money Laundering) Compliance
+- **Blacklist Management**: Address-level compliance controls
+- **Transaction Monitoring**: Real-time compliance checks
+- **Regulatory Reporting**: Comprehensive event logging
+- **Emergency Controls**: Pause/unpause functionality
+
+### Security Measures
+- **Access Control**: Owner-based administrative functions
+- **Reentrancy Protection**: SafeERC20 usage and reentrancy guards
+- **Rate Limiting**: Daily conversion limits and amount restrictions
+- **Emergency Functions**: Emergency withdrawal and pause capabilities
+
+## Style Guidelines & Best Practices
+
+### Code Style
+- **Solidity Style**: Follow Solidity style guide and Foundry formatting
+- **Line Length**: Maximum 120 characters
+- **Naming**: mixedCase for variables, PascalCase for contracts
+- **Documentation**: Comprehensive NatSpec documentation (@title, @dev, @notice, @param)
+
+### Development Practices
+- **Testing**: Minimum 90%+ test coverage
+- **Security**: Multiple static analysis tools (Slither, Mythril)
+- **Gas Optimization**: Gas reporting and optimization analysis
+- **Version Control**: Semantic versioning, comprehensive commit messages
+
+### Error Handling
+- **Custom Errors**: Use custom errors for gas efficiency
+- **Validation**: Comprehensive input validation
+- **Events**: Detailed event emission for monitoring
+- **Fallbacks**: Graceful handling of edge cases
+
+## Key Configuration Parameters
+- **Initial wINR Supply**: 100 million tokens (18 decimals)
+- **Max wINR Supply**: 1 billion tokens
+- **Conversion Service Balance**: 10 million wINR for operations
+- **Default Daily Limit**: 10,000 wINR per user
+- **Minimum Conversion**: 100 wINR
+- **Maximum Conversion**: 1,000,000 wINR per transaction
+- **Pool Fee**: 0.3% (3000 basis points)
+
+## Development Environment
+- **Node.js**: 16+ required
+- **Foundry**: Latest stable version
+- **Git**: For dependency management via submodules
+- **Environment**: Unix-like system recommended (Linux/macOS)
+
+## Project Status
+- **Active Contracts**: Simplified versions for core functionality
+
+- **Production Ready**: Core contracts tested and deployable
+- **Roadmap**: Extended integrations, mobile app, multi-chain support
