@@ -83,14 +83,14 @@ jobs:
           # Check if contracts exist and dependencies are available
           if [ -f "contracts/WINR.sol" ] && [ -d "lib/openzeppelin-contracts" ]; then
             echo "Analyzing WINR.sol..."
-            myth analyze contracts/WINR.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' || echo "⚠️ Mythril analysis failed for WINR.sol - may indicate security issues or dependency problems"
+            myth analyze contracts/WINR.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/ @uniswap/v4-core/=lib/v4-core/ @uniswap/v4-periphery/=lib/v4-periphery/' || echo "⚠️ Mythril analysis failed for WINR.sol - may indicate security issues or dependency problems"
           else
             echo "❌ Missing dependencies for WINR.sol analysis"
           fi
 
           if [ -f "contracts/TokenConversionService.sol" ]; then
             echo "Analyzing TokenConversionService.sol..."
-            myth analyze contracts/TokenConversionService.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' || echo "⚠️ Mythril analysis failed for TokenConversionService.sol - may indicate security issues or dependency problems"
+            myth analyze contracts/TokenConversionService.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/ @uniswap/v4-core/=lib/v4-core/ @uniswap/v4-periphery/=lib/v4-periphery/' || echo "⚠️ Mythril analysis failed for TokenConversionService.sol - may indicate security issues or dependency problems"
           else
             echo "❌ TokenConversionService.sol not found"
           fi
@@ -131,7 +131,7 @@ jobs:
           echo "Running Slither security analysis..."
 
           # Run Slither with proper error handling
-          if slither . --solc-version 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' --print human-summary; then
+          if slither . --solc-version 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/ @uniswap/v4-core/=lib/v4-core/ @uniswap/v4-periphery/=lib/v4-periphery/' --print human-summary; then
             echo "✅ Slither analysis completed successfully"
           else
             echo "⚠️ Slither analysis found issues or encountered errors"
