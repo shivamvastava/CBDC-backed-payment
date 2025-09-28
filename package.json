@@ -8,9 +8,9 @@
     "test:verbose": "forge test -vvv",
     "test:gas": "forge test --gas-report",
     "build": "forge build",
-    "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "deploy:sepolia": "forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify",
-    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify",
+    "deploy:local": "forge script script/SimpleDeploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:sepolia": "forge script script/SimpleDeploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify",
+    "deploy:mainnet": "forge script script/SimpleDeploy.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify",
     "lint": "forge fmt",
     "coverage": "forge coverage"
   },
@@ -28,9 +28,5 @@
   "devDependencies": {
     "@openzeppelin/contracts": "^5.0.0",
     "forge-std": "^1.7.0"
-  },
-  "dependencies": {
-    "v4-core": "^0.0.1",
-    "v4-periphery": "^0.0.1"
   }
 }
