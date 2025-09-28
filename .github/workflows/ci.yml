@@ -2,12 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
   FOUNDRY_PROFILE: ci
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -24,7 +28,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: stable
 
       - name: Show Forge version
         run: |
@@ -60,6 +64,9 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +74,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
       - name: Initialize submodules and install dependencies
         run: |
@@ -78,12 +87,13 @@ jobs:
           forge coverage --report lcov
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          file: ./lcov.info
+          use_oidc: true
+          files: ./lcov.info
+          fail_ci_if_error: true
           flags: smart-contracts
           name: smart-contracts
-        continue-on-error: true
 
   build-summary:
     name: Build Summary
@@ -95,13 +105,13 @@ jobs:
         run: |
           echo "## Build Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.check.result }}" == "success" ]; then
             echo "✅ **Main Build & Tests**: Passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Main Build & Tests**: Failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.coverage.result }}" == "success" ]; then
             echo "✅ **Coverage Analysis**: Completed" >> $GITHUB_STEP_SUMMARY
           else

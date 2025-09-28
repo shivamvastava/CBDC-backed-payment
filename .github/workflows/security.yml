@@ -2,11 +2,11 @@ name: "Security Scan"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   schedule:
-    - cron: '36 5 * * 1'  # Weekly on Monday
+    - cron: "36 5 * * 1" # Weekly on Monday
 
 jobs:
   analyze:
@@ -21,26 +21,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'javascript' ]
+        language: ["javascript"]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: ${{ matrix.language }}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
-      with:
-        category: "/language:${{matrix.language}}"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
 
   mythril:
     name: Mythril Analysis
@@ -54,13 +54,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
       - name: Initialize submodules and install dependencies
         run: |
+          pip3 install solc-select
+          solc-select use 0.8.24 --always-install
           git submodule update --init --recursive
           forge install --no-commit
 
@@ -75,22 +79,22 @@ jobs:
       - name: Run Mythril analysis
         run: |
           echo "Running Mythril security analysis..."
-          
+
           # Check if contracts exist and dependencies are available
           if [ -f "contracts/WINR.sol" ] && [ -d "lib/openzeppelin-contracts" ]; then
             echo "Analyzing WINR.sol..."
-            myth analyze contracts/WINR.sol --solc-json || echo "⚠️ Mythril analysis failed for WINR.sol - may indicate security issues or dependency problems"
+            myth analyze contracts/WINR.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' || echo "⚠️ Mythril analysis failed for WINR.sol - may indicate security issues or dependency problems"
           else
             echo "❌ Missing dependencies for WINR.sol analysis"
           fi
-          
+
           if [ -f "contracts/TokenConversionService.sol" ]; then
             echo "Analyzing TokenConversionService.sol..."
-            myth analyze contracts/TokenConversionService.sol --solc-json || echo "⚠️ Mythril analysis failed for TokenConversionService.sol - may indicate security issues or dependency problems"
+            myth analyze contracts/TokenConversionService.sol --solv 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' || echo "⚠️ Mythril analysis failed for TokenConversionService.sol - may indicate security issues or dependency problems"
           else
             echo "❌ TokenConversionService.sol not found"
           fi
-          
+
           echo "✅ Mythril analysis completed (check individual results above)"
 
   slither:
@@ -104,9 +108,13 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
       - name: Initialize submodules and install dependencies
         run: |
+          pip3 install solc-select
+          solc-select use 0.8.24 --always-install
           git submodule update --init --recursive
           forge install --no-commit
 
@@ -121,9 +129,9 @@ jobs:
       - name: Run Slither analysis
         run: |
           echo "Running Slither security analysis..."
-          
+
           # Run Slither with proper error handling
-          if slither . --print human-summary; then
+          if slither . --solc-version 0.8.24 --solc-remaps '@openzeppelin/=lib/openzeppelin-contracts/' --print human-summary; then
             echo "✅ Slither analysis completed successfully"
           else
             echo "⚠️ Slither analysis found issues or encountered errors"
@@ -141,18 +149,18 @@ jobs:
         run: |
           echo "## Security Analysis Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.mythril.result }}" == "success" ]; then
             echo "✅ **Mythril Analysis**: Completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ **Mythril Analysis**: Issues found or failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.slither.result }}" == "success" ]; then
             echo "✅ **Slither Analysis**: Completed" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ **Slither Analysis**: Issues found or failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Please review individual job logs for detailed findings." >> $GITHUB_STEP_SUMMARY
