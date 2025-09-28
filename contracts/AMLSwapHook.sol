@@ -9,6 +9,7 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
+import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -107,12 +108,12 @@ contract AMLSwapHook is BaseHook, Ownable {
      * - Demonstrates token conversion flow if input token is authorized and not wINR
      *   (simple accounting example; adjust in production).
      */
-    function beforeSwap(
+    function _beforeSwap(
         address sender,
         PoolKey calldata key,
-        IPoolManager.SwapParams calldata params,
+        SwapParams calldata params,
         bytes calldata hookData
-    ) external override returns (bytes4) {
+    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
         // AML Compliance Check (recipient optional and can be provided via hookData)
         address recipient = _recipientFromHookData(hookData);
         _performAMLCheck(sender, recipient);
@@ -120,7 +121,8 @@ contract AMLSwapHook is BaseHook, Ownable {
         // Token Conversion (illustrative; production systems should integrate robust pricing/oracle flows)
         _handleTokenConversion(sender, key, params);
 
-        return BaseHook.beforeSwap.selector;
+        // No delta or dynamic fee returned by this hook
+        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
     /**
@@ -190,7 +192,7 @@ contract AMLSwapHook is BaseHook, Ownable {
     function _handleTokenConversion(
         address sender,
         PoolKey calldata key,
-        IPoolManager.SwapParams calldata params
+        SwapParams calldata params
     ) internal {
         address tokenIn = Currency.unwrap(params.zeroForOne ? key.currency0 : key.currency1);
 
