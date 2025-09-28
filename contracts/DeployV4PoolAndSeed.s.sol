@@ -131,7 +131,8 @@ contract DeployV4PoolAndSeed is Script {
         console.log("Hook Flags:       ", hookFlags);
         console.log("Fee:              ", fee);
         console.log("TickSpacing:      ", tickSpacing);
-        console.log("TickRange:        ", tickLower, tickUpper);
+        console.log("TickLower:        ", int256(tickLower));
+        console.log("TickUpper:        ", int256(tickUpper));
         console.log("SqrtPriceX96:     ", sqrtPriceX96);
         console.log("Max spend token0: ", amount0Max);
         console.log("Max spend token1: ", amount1Max);
