@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title WINR - Wrapped Indian Rupee Token
@@ -13,33 +13,33 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  */
 contract WINR is ERC20, Ownable, Pausable {
     // Maximum supply of wINR tokens (1 billion tokens with 18 decimals)
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18;
-    
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10 ** 18;
+
     // Mapping to track blacklisted addresses
     mapping(address => bool) public blacklisted;
-    
+
     // Events for compliance tracking
     event AddressBlacklisted(address indexed account, bool status);
     event TokensMinted(address indexed to, uint256 amount);
     event TokensBurned(address indexed from, uint256 amount);
-    
+
     // Modifier to check if address is not blacklisted
     modifier notBlacklisted(address account) {
         require(!blacklisted[account], "WINR: Address is blacklisted");
         _;
     }
-    
+
     /**
      * @dev Constructor that initializes the wINR token
      * @param initialSupply Initial supply of tokens to mint to the owner
      */
     constructor(uint256 initialSupply) ERC20("Wrapped Indian Rupee", "wINR") Ownable(msg.sender) {
         require(initialSupply <= MAX_SUPPLY, "WINR: Initial supply exceeds maximum");
-        
+
         // Mint initial supply to the owner
         _mint(msg.sender, initialSupply);
     }
-    
+
     /**
      * @dev Mint new tokens (only owner)
      * @param to Address to mint tokens to
@@ -49,11 +49,11 @@ contract WINR is ERC20, Ownable, Pausable {
         require(totalSupply() + amount <= MAX_SUPPLY, "WINR: Minting would exceed maximum supply");
         require(to != address(0), "WINR: Cannot mint to zero address");
         require(!blacklisted[to], "WINR: Cannot mint to blacklisted address");
-        
+
         _mint(to, amount);
         emit TokensMinted(to, amount);
     }
-    
+
     /**
      * @dev Burn tokens from caller's balance
      * @param amount Amount of tokens to burn
@@ -62,7 +62,7 @@ contract WINR is ERC20, Ownable, Pausable {
         _burn(msg.sender, amount);
         emit TokensBurned(msg.sender, amount);
     }
-    
+
     /**
      * @dev Burn tokens from specified address (only owner)
      * @param from Address to burn tokens from
@@ -72,7 +72,7 @@ contract WINR is ERC20, Ownable, Pausable {
         _burn(from, amount);
         emit TokensBurned(from, amount);
     }
-    
+
     /**
      * @dev Add or remove address from blacklist (only owner)
      * @param account Address to blacklist/unblacklist
@@ -83,21 +83,21 @@ contract WINR is ERC20, Ownable, Pausable {
         blacklisted[account] = status;
         emit AddressBlacklisted(account, status);
     }
-    
+
     /**
      * @dev Pause token transfers (only owner)
      */
     function pause() external onlyOwner {
         _pause();
     }
-    
+
     /**
      * @dev Unpause token transfers (only owner)
      */
     function unpause() external onlyOwner {
         _unpause();
     }
-    
+
     /**
      * @dev Override _update to include blacklist and pause checks
      * @dev This replaces _beforeTokenTransfer in OpenZeppelin v5
@@ -105,7 +105,7 @@ contract WINR is ERC20, Ownable, Pausable {
     function _update(address from, address to, uint256 value) internal override {
         // Check if contract is paused
         require(!paused(), "WINR: Token transfers are paused");
-        
+
         // Check blacklist status (except for minting and burning)
         if (from != address(0)) {
             require(!blacklisted[from], "WINR: Sender is blacklisted");
@@ -113,10 +113,10 @@ contract WINR is ERC20, Ownable, Pausable {
         if (to != address(0)) {
             require(!blacklisted[to], "WINR: Recipient is blacklisted");
         }
-        
+
         super._update(from, to, value);
     }
-    
+
     /**
      * @dev Get the number of decimals for the token
      * @return Number of decimals (18)
@@ -124,7 +124,7 @@ contract WINR is ERC20, Ownable, Pausable {
     function decimals() public pure override returns (uint8) {
         return 18;
     }
-    
+
     /**
      * @dev Get the maximum supply of tokens
      * @return Maximum supply
@@ -132,7 +132,7 @@ contract WINR is ERC20, Ownable, Pausable {
     function getMaxSupply() external pure returns (uint256) {
         return MAX_SUPPLY;
     }
-    
+
     /**
      * @dev Check if an address is blacklisted
      * @param account Address to check
@@ -141,7 +141,7 @@ contract WINR is ERC20, Ownable, Pausable {
     function isBlacklisted(address account) external view returns (bool) {
         return blacklisted[account];
     }
-    
+
     /**
      * @dev Get the remaining mintable supply
      * @return Remaining mintable amount

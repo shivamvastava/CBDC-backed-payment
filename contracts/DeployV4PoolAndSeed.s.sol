@@ -88,7 +88,7 @@ contract DeployV4PoolAndSeed is Script {
 
     function run() external {
         // Load required env vars
-        uint256 deployerPK = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPk = vm.envUint("PRIVATE_KEY");
 
         address poolManagerAddr = vm.envAddress("POOL_MANAGER");
         address positionManagerAddr = vm.envAddress("POSITION_MANAGER");
@@ -113,7 +113,7 @@ contract DeployV4PoolAndSeed is Script {
 
         address recipient = _envOrDefaultAddress("RECIPIENT", address(0));
         if (recipient == address(0)) {
-            recipient = vm.addr(deployerPK);
+            recipient = vm.addr(deployerPk);
         }
 
         require(poolManagerAddr != address(0), "POOL_MANAGER is required");
@@ -141,7 +141,7 @@ contract DeployV4PoolAndSeed is Script {
         IPoolManager poolManager = IPoolManager(poolManagerAddr);
         IPositionManager positionManager = IPositionManager(positionManagerAddr);
 
-        vm.startBroadcast(deployerPK);
+        vm.startBroadcast(deployerPk);
 
         // Construct the PoolKey with the hook address + flags encoded
         PoolKey memory key = PoolKey({

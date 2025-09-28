@@ -3,9 +3,8 @@
  */
 pragma solidity ^0.8.24;
 
-import { Test, console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
@@ -56,7 +55,7 @@ contract AMLSwapHookV4Test is Test {
         hook = new AMLSwapHook(IPoolManager(poolManager), address(winr));
 
         // Seed hook with some wINR so it can pay out conversions
-        winr.transfer(address(hook), HOOK_WINR_SEED);
+        assertTrue(winr.transfer(address(hook), HOOK_WINR_SEED));
 
         // Deploy a simple ERC20 to act as an authorized token for conversion
         tokenIn = new TestToken("TestIn", "TIN", 0);
@@ -182,8 +181,8 @@ contract AMLSwapHookV4Test is Test {
 
         // Record balances
         uint256 userTokenInBefore = tokenIn.balanceOf(userApproved);
-        uint256 userWINRBefore = winr.balanceOf(userApproved);
-        uint256 hookWINRBefore = winr.balanceOf(address(hook));
+        uint256 userWinrBefore = winr.balanceOf(userApproved);
+        uint256 hookWinrBefore = winr.balanceOf(address(hook));
 
         // Act
         // The hook's external beforeSwap in BaseHook is only callable by PoolManager; simulate that sender.
@@ -191,14 +190,14 @@ contract AMLSwapHookV4Test is Test {
         hook.beforeSwap(userApproved, key, params, bytes(""));
 
         // 1:1 conversion expected
-        uint256 expectedWINR = fromAmount;
+        uint256 expectedWinr = fromAmount;
 
         // Assert: tokenIn pulled from user
         assertEq(tokenIn.balanceOf(userApproved), userTokenInBefore - fromAmount, "user tokenIn should decrease");
 
         // Assert: user received wINR, hook paid out wINR
-        assertEq(winr.balanceOf(userApproved), userWINRBefore + expectedWINR, "user wINR should increase");
-        assertEq(winr.balanceOf(address(hook)), hookWINRBefore - expectedWINR, "hook wINR should decrease");
+        assertEq(winr.balanceOf(userApproved), userWinrBefore + expectedWinr, "user wINR should increase");
+        assertEq(winr.balanceOf(address(hook)), hookWinrBefore - expectedWinr, "hook wINR should decrease");
     }
 
     // -------------------------------
@@ -251,16 +250,16 @@ contract AMLSwapHookV4Test is Test {
         SwapParams memory params =
             SwapParams({ zeroForOne: true, amountSpecified: int256(fromAmount), sqrtPriceLimitX96: uint160(1) << 96 });
 
-        uint256 userWINRBefore = winr.balanceOf(userApproved);
-        uint256 hookWINRBefore = winr.balanceOf(address(hook));
+        uint256 userWinrBefore = winr.balanceOf(userApproved);
+        uint256 hookWinrBefore = winr.balanceOf(address(hook));
 
         // No approvals needed for conversion path since conversion should NOT trigger
         vm.prank(poolManager);
         hook.beforeSwap(userApproved, key, params, bytes(""));
 
         // No conversion should occur
-        assertEq(winr.balanceOf(userApproved), userWINRBefore, "user wINR should be unchanged");
-        assertEq(winr.balanceOf(address(hook)), hookWINRBefore, "hook wINR should be unchanged");
+        assertEq(winr.balanceOf(userApproved), userWinrBefore, "user wINR should be unchanged");
+        assertEq(winr.balanceOf(address(hook)), hookWinrBefore, "hook wINR should be unchanged");
     }
 
     function testOnlyPoolManagerGuardIsEnforced() public {
@@ -295,7 +294,7 @@ contract AMLSwapHookV4Test is Test {
         uint256 hookBal = winr.balanceOf(address(hook));
         if (hookBal < amount) {
             // top-up hook if needed
-            winr.transfer(address(hook), amount - hookBal);
+            assertTrue(winr.transfer(address(hook), amount - hookBal));
         }
 
         hook.emergencyWithdraw(address(winr), amount);
