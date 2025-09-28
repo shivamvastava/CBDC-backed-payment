@@ -49,7 +49,7 @@ import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
 import { PoolKey } from "v4-core/src/types/PoolKey.sol";
 import { PoolId, PoolIdLibrary } from "v4-core/src/types/PoolId.sol";
 import { Currency, CurrencyLibrary } from "v4-core/src/types/Currency.sol";
-import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import { IHooks } from "v4-core/src/interfaces/IHooks.sol";
 
 // Minimal interface for PositionManager; the actual periphery implements this batching API.
 interface IPositionManager {
@@ -198,7 +198,8 @@ contract DeployV4PoolAndSeed is Script {
         positionManager.modifyLiquidities(payload, block.timestamp + 900);
 
         PoolId poolId = key.toId();
-        console.log("Seed liquidity added. PoolId:", PoolId.unwrap(poolId));
+        console.log("Seed liquidity added. PoolId:");
+        console.logBytes32(PoolId.unwrap(poolId));
 
         vm.stopBroadcast();
     }
