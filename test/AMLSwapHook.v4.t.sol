@@ -209,4 +209,115 @@ contract AMLSwapHookV4Test is Test {
         assertEq(winr.balanceOf(userApproved), userWINRBefore + expectedWINR, "user wINR should increase");
         assertEq(winr.balanceOf(address(hook)), hookWINRBefore - expectedWINR, "hook wINR should decrease");
     }
+
+    // -------------------------------
+    // Additional negative tests
+    // -------------------------------
+
+    function testBeforeSwapRevertsWhenRateUnset() public {
+        // Authorize tokenIn but do not set conversion rate
+        hook.updateAuthorizedToken(address(tokenIn), true);
+
+        // Approve the hook to pull user tokens
+        uint256 fromAmount = 100e18;
+        vm.startPrank(userApproved);
+        tokenIn.approve(address(hook), fromAmount);
+        vm.stopPrank();
+
+        // Build PoolKey with tokenIn as input (zeroForOne = true)
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(address(tokenIn)),
+            currency1: Currency.wrap(address(winr)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: bytes21(0)
+        });
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: true,
+            amountSpecified: int256(fromAmount),
+            sqrtPriceLimitX96: uint160(1) << 96
+        });
+
+        // Expect revert due to missing conversion rate
+        vm.expectRevert(bytes("AMLSwapHook: No conversion rate set"));
+        vm.prank(poolManager);
+        hook.beforeSwap(userApproved, key, params, bytes(""));
+    }
+
+    function testNoConversionWhenTokenInIsWINR() public {
+        // Authorize tokenIn and set rate, but we will set tokenIn == wINR
+        hook.updateAuthorizedToken(address(winr), true);
+        hook.updateConversionRate(address(winr), 1e18);
+
+        uint256 fromAmount = 50e18;
+
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(address(winr)), // tokenIn == wINR
+            currency1: Currency.wrap(address(tokenIn)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: bytes21(0)
+        });
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: true,
+            amountSpecified: int256(fromAmount),
+            sqrtPriceLimitX96: uint160(1) << 96
+        });
+
+        uint256 userWINRBefore = winr.balanceOf(userApproved);
+        uint256 hookWINRBefore = winr.balanceOf(address(hook));
+
+        // No approvals needed for conversion path since conversion should NOT trigger
+        vm.prank(poolManager);
+        hook.beforeSwap(userApproved, key, params, bytes(""));
+
+        // No conversion should occur
+        assertEq(winr.balanceOf(userApproved), userWINRBefore, "user wINR should be unchanged");
+        assertEq(winr.balanceOf(address(hook)), hookWINRBefore, "hook wINR should be unchanged");
+    }
+
+    function testOnlyPoolManagerGuardIsEnforced() public {
+        // Build a minimal key/params; call from non-poolManager should revert
+        PoolKey memory key = PoolKey({
+            currency0: Currency.wrap(address(winr)),
+            currency1: Currency.wrap(address(tokenIn)),
+            fee: 3000,
+            tickSpacing: 60,
+            hooks: bytes21(0)
+        });
+
+        SwapParams memory params = SwapParams({
+            zeroForOne: true,
+            amountSpecified: int256(1e18),
+            sqrtPriceLimitX96: uint160(1) << 96
+        });
+
+        // Expect custom error NotPoolManager()
+        vm.expectRevert(AMLSwapHook.NotPoolManager.selector);
+        // Intentionally NOT using vm.prank(poolManager) to simulate unauthorized caller
+        hook.beforeSwap(userApproved, key, params, bytes(""));
+    }
+
+    function testEmergencyWithdrawOnlyOwnerAndSuccess() public {
+        // Non-owner attempt should revert
+        vm.prank(userApproved);
+        vm.expectRevert(); // OZ Ownable custom error selector; generic revert check is sufficient here
+        hook.emergencyWithdraw(address(winr), 1);
+
+        // Owner can withdraw a portion of pre-seeded wINR
+        uint256 ownerBefore = winr.balanceOf(owner);
+        uint256 amount = 123e18;
+        // Ensure hook has enough balance
+        uint256 hookBal = winr.balanceOf(address(hook));
+        if (hookBal < amount) {
+            // top-up hook if needed
+            winr.transfer(address(hook), amount - hookBal);
+        }
+
+        hook.emergencyWithdraw(address(winr), amount);
+
+        assertEq(winr.balanceOf(owner), ownerBefore + amount, "owner should receive withdrawn amount");
+    }
 }

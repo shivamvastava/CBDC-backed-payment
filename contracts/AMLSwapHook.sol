@@ -41,8 +41,14 @@ contract AMLSwapHook is BaseHook, Ownable {
     // Mapping to track authorized tokens that can be converted to wINR
     mapping(address => bool) public authorizedTokens;
 
-    // Mapping to store conversion rates (token => rate per wINR, scaled by 1e18)
+    // Mapping to store conversion rates (token => rate per wINR)
     mapping(address => uint256) public conversionRates;
+
+    // Circuit breaker for conversion path
+    bool public conversionEnabled = true;
+
+    // Hard cap to limit per-transaction conversion size (defaults to no cap)
+    uint256 public maxConversionPerTx = type(uint256).max;
 
     // Events for compliance and monitoring
     event AddressBlacklisted(address indexed account, bool status);
@@ -198,6 +204,9 @@ contract AMLSwapHook is BaseHook, Ownable {
 
         // If the input token is not wINR and is authorized for conversion
         if (tokenIn != wINR && authorizedTokens[tokenIn]) {
+            // Enforce circuit breaker
+            require(conversionEnabled, "AMLSwapHook: Conversion disabled");
+
             // Perform simplified conversion for demonstration purposes
             _convertToWINR(sender, tokenIn, params.amountSpecified);
         }
@@ -214,8 +223,12 @@ contract AMLSwapHook is BaseHook, Ownable {
         uint256 rate = conversionRates[token];
         require(rate > 0, "AMLSwapHook: No conversion rate set");
 
-        // Handle both positive and negative amounts
+        // Handle both positive and negative amounts (exactIn/exactOut)
         uint256 fromAmount = amount > 0 ? uint256(amount) : uint256(-amount);
+
+        // Enforce per-transaction max conversion guard
+        require(fromAmount <= maxConversionPerTx, "AMLSwapHook: Exceeds max conversion per tx");
+
         uint256 wINRAmount = (fromAmount * rate) / 1e18;
         require(wINRAmount > 0, "AMLSwapHook: Conversion results in zero wINR");
 
@@ -264,6 +277,22 @@ contract AMLSwapHook is BaseHook, Ownable {
         require(rate > 0, "AMLSwapHook: Invalid conversion rate");
         conversionRates[token] = rate;
         emit ConversionRateUpdated(token, rate);
+    }
+
+    /**
+     * @dev Toggle conversion path in emergencies (only owner)
+     * @param enabled Enable/disable conversion
+     */
+    function setConversionEnabled(bool enabled) external onlyOwner {
+        conversionEnabled = enabled;
+    }
+
+    /**
+     * @dev Set max conversion allowed per transaction (only owner)
+     * @param max New max amount for input token per tx
+     */
+    function setMaxConversionPerTx(uint256 max) external onlyOwner {
+        maxConversionPerTx = max;
     }
 
     // -------------
