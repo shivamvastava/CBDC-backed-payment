@@ -1,20 +1,18 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
-import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
-import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
+import { Hooks } from "v4-core/src/libraries/Hooks.sol";
+import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
+import { PoolKey } from "v4-core/src/types/PoolKey.sol";
+
+import { BeforeSwapDelta, BeforeSwapDeltaLibrary } from "v4-core/src/types/BeforeSwapDelta.sol";
+import { SwapParams } from "v4-core/src/types/PoolOperation.sol";
+import { Currency, CurrencyLibrary } from "v4-core/src/types/Currency.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title AMLSwapHook - Uniswap V4 Hook for AML Compliance and Token Conversion
@@ -29,12 +27,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * - This implementation enables beforeSwap (without return delta).
  */
 contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
-    using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using SafeERC20 for IERC20;
 
     // wINR token address
-    address public immutable wINR;
+    address public immutable W_INR;
 
     // Mapping to track blacklisted addresses
     mapping(address => bool) public blacklisted;
@@ -56,7 +53,7 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
     event TokenAuthorized(address indexed token, bool status);
     event ConversionRateUpdated(address indexed token, uint256 rate);
     event SwapBlocked(address indexed user, string reason);
-    event TokenConverted(address indexed user, address indexed fromToken, uint256 amount, uint256 wINRAmount);
+    event TokenConverted(address indexed user, address indexed fromToken, uint256 amount, uint256 wInrAmount);
 
     // Modifier to check if address is not blacklisted
     modifier notBlacklisted(address account) {
@@ -66,13 +63,13 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
 
     /**
      * @dev Constructor
-     * @param _poolManager Uniswap V4 PoolManager address
-     * @param _wINR wINR token address
+     * @param poolManager Uniswap V4 PoolManager address
+     * @param wInr wINR token address
      */
-    constructor(IPoolManager _poolManager, address _wINR) BaseHook(_poolManager) Ownable(msg.sender) {
-        require(address(_poolManager) != address(0), "AMLSwapHook: invalid PoolManager");
-        require(_wINR != address(0), "AMLSwapHook: Invalid wINR address");
-        wINR = _wINR;
+    constructor(IPoolManager poolManager, address wInr) BaseHook(poolManager) Ownable(msg.sender) {
+        require(address(poolManager) != address(0), "AMLSwapHook: invalid PoolManager");
+        require(wInr != address(0), "AMLSwapHook: Invalid wINR address");
+        W_INR = wInr;
     }
 
     /**
@@ -115,15 +112,15 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
      * - Demonstrates token conversion flow if input token is authorized and not wINR
      *   (simple accounting example; adjust in production).
      */
-    function _beforeSwap(
-        address sender,
-        PoolKey calldata key,
-        SwapParams calldata params,
-        bytes calldata hookData
-    ) internal nonReentrant override returns (bytes4, BeforeSwapDelta, uint24) {
+    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+        internal
+        override
+        nonReentrant
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
         // AML Compliance Check (recipient optional and can be provided via hookData)
         address recipient = _recipientFromHookData(hookData);
-        _performAMLCheck(sender, recipient);
+        performAmlCheck(sender, recipient);
 
         // Token Conversion WARNING: static demo rates only; not safe for production without oracles/slippage/limits
         _handleTokenConversion(sender, key, params);
@@ -137,7 +134,7 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
      * @param sender Address initiating the transaction
      * @param recipient Address receiving the tokens (can be address(0) if not applicable)
      */
-    function _performAMLCheck(address sender, address recipient) internal {
+    function performAmlCheck(address sender, address recipient) internal {
         if (blacklisted[sender]) {
             // block sender
             // NOTE: Emitting an event before revert is fine for observability
@@ -159,7 +156,7 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
     /**
      * @dev Internal helper for logging and reverting on AML check failure
      */
-    function revertWithLog(address user, string memory reason) internal pure {
+    function revertWithLog(address, /* user */ string memory reason) internal pure {
         // emit event (readers can reconstruct cause)
         // NOTE: Since this is view in _performAMLCheck, we don't emit here.
         // To keep parity with examples, we keep explicit helper but don't emit from view context.
@@ -198,20 +195,16 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
      * - This is only a demonstration. In production, integrate with a conversion service,
      *   use trusted oracles for pricing, and handle approvals/liquidity properly.
      */
-    function _handleTokenConversion(
-        address sender,
-        PoolKey calldata key,
-        SwapParams calldata params
-    ) internal {
+    function _handleTokenConversion(address sender, PoolKey calldata key, SwapParams calldata params) internal {
         address tokenIn = Currency.unwrap(params.zeroForOne ? key.currency0 : key.currency1);
 
         // If the input token is not wINR and is authorized for conversion
-        if (tokenIn != wINR && authorizedTokens[tokenIn]) {
+        if (tokenIn != W_INR && authorizedTokens[tokenIn]) {
             // Enforce circuit breaker
             require(conversionEnabled, "AMLSwapHook: Conversion disabled");
 
             // Perform simplified conversion for demonstration purposes
-            _convertToWINR(sender, tokenIn, params.amountSpecified);
+            convertToWinr(sender, tokenIn, params.amountSpecified);
         }
     }
 
@@ -221,7 +214,7 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
      * @param token Address of the token to convert
      * @param amount Amount to convert (can be negative for exact output swaps)
      */
-    function _convertToWINR(address user, address token, int256 amount) internal {
+    function convertToWinr(address user, address token, int256 amount) internal {
         require(amount != 0, "AMLSwapHook: Invalid conversion amount");
         uint256 rate = conversionRates[token];
         require(rate > 0, "AMLSwapHook: No conversion rate set");
@@ -232,16 +225,16 @@ contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
         // Enforce per-transaction max conversion guard
         require(fromAmount <= maxConversionPerTx, "AMLSwapHook: Exceeds max conversion per tx");
 
-        uint256 wINRAmount = (fromAmount * rate) / 1e18;
-        require(wINRAmount > 0, "AMLSwapHook: Conversion results in zero wINR");
+        uint256 wInrAmount = (fromAmount * rate) / 1e18;
+        require(wInrAmount > 0, "AMLSwapHook: Conversion results in zero wINR");
 
         // Transfer input token from user to this contract
         IERC20(token).safeTransferFrom(user, address(this), fromAmount);
 
         // Transfer wINR from this contract to user (assumes pre-funded)
-        IERC20(wINR).safeTransfer(user, wINRAmount);
+        IERC20(W_INR).safeTransfer(user, wInrAmount);
 
-        emit TokenConverted(user, token, fromAmount, wINRAmount);
+        emit TokenConverted(user, token, fromAmount, wInrAmount);
     }
 
     // -----------------------
