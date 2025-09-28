@@ -18,7 +18,7 @@ on:
         required: true
         type: string
       pool_manager_address:
-        description: 'Uniswap V4 PoolManager address (optional)'
+        description: 'Uniswap V4 PoolManager address (optional, unused by SimpleDeploy; kept for backward compatibility)'
         required: false
         type: string
         default: '0x0000000000000000000000000000000000000000'
@@ -30,7 +30,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.network }}
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +38,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
       - name: Initialize submodules and install dependencies
         run: |
@@ -55,7 +57,7 @@ jobs:
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
         run: |
           echo "Deploying to ${{ inputs.network }}..."
-          
+
           # Use the simple deployment script that works with current contracts
           forge script script/SimpleDeploy.s.sol \
             --rpc-url $RPC_URL \
