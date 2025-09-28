@@ -3,18 +3,18 @@
  */
 pragma solidity ^0.8.24;
 
-import {Test, console} from "forge-std/Test.sol";
+import { Test, console } from "forge-std/Test.sol";
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
-import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
+import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
+import { SwapParams } from "v4-core/src/types/PoolOperation.sol";
+import { PoolKey } from "v4-core/src/types/PoolKey.sol";
+import { Currency, CurrencyLibrary } from "v4-core/src/types/Currency.sol";
 
-import {AMLSwapHook} from "../contracts/AMLSwapHook.sol";
-import {WINR} from "../contracts/WINR.sol";
+import { AMLSwapHook } from "../contracts/AMLSwapHook.sol";
+import { WINR } from "../contracts/WINR.sol";
 
 contract TestToken is ERC20 {
     constructor(string memory name_, string memory symbol_, uint256 supply) ERC20(name_, symbol_) {
@@ -78,14 +78,11 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(tokenIn)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(1e18),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(1e18), sqrtPriceLimitX96: uint160(1) << 96 });
 
         // Expect revert on blacklisted sender
         vm.expectRevert(bytes("AMLSwapHook: Sender is blacklisted"));
@@ -103,14 +100,11 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(tokenIn)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(1e18),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(1e18), sqrtPriceLimitX96: uint160(1) << 96 });
 
         // Provide recipient in hookData (abi.encode(address))
         bytes memory hookData = abi.encode(userBlacklisted);
@@ -179,15 +173,12 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(winr)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
         // amountSpecified > 0 (exact input)
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(fromAmount),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(fromAmount), sqrtPriceLimitX96: uint160(1) << 96 });
 
         // Record balances
         uint256 userTokenInBefore = tokenIn.balanceOf(userApproved);
@@ -230,14 +221,11 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(winr)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(fromAmount),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(fromAmount), sqrtPriceLimitX96: uint160(1) << 96 });
 
         // Expect revert due to missing conversion rate
         vm.expectRevert(bytes("AMLSwapHook: No conversion rate set"));
@@ -257,14 +245,11 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(tokenIn)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(fromAmount),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(fromAmount), sqrtPriceLimitX96: uint160(1) << 96 });
 
         uint256 userWINRBefore = winr.balanceOf(userApproved);
         uint256 hookWINRBefore = winr.balanceOf(address(hook));
@@ -285,17 +270,14 @@ contract AMLSwapHookV4Test is Test {
             currency1: Currency.wrap(address(tokenIn)),
             fee: 3000,
             tickSpacing: 60,
-            hooks: bytes21(0)
+            hooks: AMLSwapHook(address(0))
         });
 
-        SwapParams memory params = SwapParams({
-            zeroForOne: true,
-            amountSpecified: int256(1e18),
-            sqrtPriceLimitX96: uint160(1) << 96
-        });
+        SwapParams memory params =
+            SwapParams({ zeroForOne: true, amountSpecified: int256(1e18), sqrtPriceLimitX96: uint160(1) << 96 });
 
         // Expect custom error NotPoolManager()
-        vm.expectRevert(AMLSwapHook.NotPoolManager.selector);
+        vm.expectRevert(bytes4(keccak256("NotPoolManager()")));
         // Intentionally NOT using vm.prank(poolManager) to simulate unauthorized caller
         hook.beforeSwap(userApproved, key, params, bytes(""));
     }
