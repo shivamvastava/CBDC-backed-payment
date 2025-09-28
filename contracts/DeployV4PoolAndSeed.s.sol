@@ -42,14 +42,14 @@
  */
 pragma solidity ^0.8.24;
 
-import {Script, console} from "forge-std/Script.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-import {PoolKey} from "v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
-import {Hooks} from "v4-core/src/libraries/Hooks.sol";
+import { IPoolManager } from "v4-core/src/interfaces/IPoolManager.sol";
+import { PoolKey } from "v4-core/src/types/PoolKey.sol";
+import { PoolId, PoolIdLibrary } from "v4-core/src/types/PoolId.sol";
+import { Currency, CurrencyLibrary } from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 
 // Minimal interface for PositionManager; the actual periphery implements this batching API.
 interface IPositionManager {
@@ -60,13 +60,13 @@ interface IPositionManager {
 library PMActions {
     uint8 constant INCREASE_LIQUIDITY = 0x00;
     uint8 constant DECREASE_LIQUIDITY = 0x01;
-    uint8 constant MINT_POSITION      = 0x02;
-    uint8 constant BURN_POSITION      = 0x03;
+    uint8 constant MINT_POSITION = 0x02;
+    uint8 constant BURN_POSITION = 0x03;
 
-    uint8 constant SETTLE_PAIR        = 0x0d;
-    uint8 constant TAKE_PAIR          = 0x11;
-    uint8 constant CLOSE_CURRENCY     = 0x12;
-    uint8 constant CLEAR_OR_TAKE      = 0x13;
+    uint8 constant SETTLE_PAIR = 0x0d;
+    uint8 constant TAKE_PAIR = 0x11;
+    uint8 constant CLOSE_CURRENCY = 0x12;
+    uint8 constant CLEAR_OR_TAKE = 0x13;
 }
 
 contract DeployV4PoolAndSeed is Script {
@@ -74,27 +74,27 @@ contract DeployV4PoolAndSeed is Script {
     using PoolIdLibrary for PoolKey;
 
     // Defaults (can be overridden via env)
-    uint24 public constant DEFAULT_FEE = 3000;       // 0.3%
-    int24  public constant DEFAULT_TICK_SPACING = 60;
-    int24  public constant DEFAULT_TICK_LOWER = -887220;
-    int24  public constant DEFAULT_TICK_UPPER =  887220;
+    uint24 public constant DEFAULT_FEE = 3000; // 0.3%
+    int24 public constant DEFAULT_TICK_SPACING = 60;
+    int24 public constant DEFAULT_TICK_LOWER = -887220;
+    int24 public constant DEFAULT_TICK_UPPER = 887220;
 
     // 1:1 price sqrt(1) in X96 format
     uint160 public constant SQRT_PRICE_1_TO_1_X96 = uint160(1) << 96;
 
     // Default mint budgets (tune for your environment)
     uint256 public constant DEFAULT_AMOUNT0_MAX = 1_000e18; // token0 (e.g., wINR)
-    uint256 public constant DEFAULT_AMOUNT1_MAX = 1e15;     // token1 (e.g., 0.001 WETH)
+    uint256 public constant DEFAULT_AMOUNT1_MAX = 1e15; // token1 (e.g., 0.001 WETH)
 
     function run() external {
         // Load required env vars
         uint256 deployerPK = vm.envUint("PRIVATE_KEY");
 
-        address poolManagerAddr     = vm.envAddress("POOL_MANAGER");
+        address poolManagerAddr = vm.envAddress("POOL_MANAGER");
         address positionManagerAddr = vm.envAddress("POSITION_MANAGER");
-        address token0              = vm.envAddress("TOKEN0");
-        address token1              = vm.envAddress("TOKEN1");
-        address hookAddress         = vm.envAddress("HOOK_ADDRESS");
+        address token0 = vm.envAddress("TOKEN0");
+        address token1 = vm.envAddress("TOKEN1");
+        address hookAddress = vm.envAddress("HOOK_ADDRESS");
 
         // Hook flags define which hooks are enabled; ensure they match the hook's encoded address.
         // Example: BEFORE_SWAP | AFTER_SWAP | BEFORE_ADD_LIQUIDITY | BEFORE_REMOVE_LIQUIDITY
@@ -149,7 +149,7 @@ contract DeployV4PoolAndSeed is Script {
             currency1: Currency.wrap(token1),
             fee: fee,
             tickSpacing: tickSpacing,
-            hooks: Hooks.wrap(Hooks.encodeHookAddress(hookAddress, hookFlags))
+            hooks: IHooks(hookAddress)
         });
 
         // Initialize the pool at the provided sqrt price
@@ -170,10 +170,7 @@ contract DeployV4PoolAndSeed is Script {
 
         // Mint initial liquidity via batched commands:
         // Sequence: MINT_POSITION (creates negative deltas) -> SETTLE_PAIR (pays tokens)
-        bytes memory actions = abi.encodePacked(
-            PMActions.MINT_POSITION,
-            PMActions.SETTLE_PAIR
-        );
+        bytes memory actions = abi.encodePacked(PMActions.MINT_POSITION, PMActions.SETTLE_PAIR);
 
         // Pick an initial liquidity "target".
         // The exact token deltas will be computed by PM given current price; we resolve via SETTLE_PAIR.
@@ -211,7 +208,7 @@ contract DeployV4PoolAndSeed is Script {
     function _envOrDefaultUint24(string memory key, uint24 def) internal view returns (uint24) {
         (bool ok, uint256 v) = _tryEnvUint(key);
         return ok ? uint24(v) : def;
-        }
+    }
 
     function _envOrDefaultInt24(string memory key, int24 def) internal view returns (int24) {
         (bool ok, uint256 v) = _tryEnvUint(key);
