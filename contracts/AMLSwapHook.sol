@@ -1,4 +1,4 @@
-/Volumes/Code/ETHGlobal/CBDC-backed-payment/contracts/AMLSwapHook.sol
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
