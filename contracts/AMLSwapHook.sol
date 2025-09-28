@@ -14,6 +14,7 @@ import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title AMLSwapHook - Uniswap V4 Hook for AML Compliance and Token Conversion
@@ -27,7 +28,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * - getHookPermissions() indicates which hook methods are enabled.
  * - This implementation enables beforeSwap (without return delta).
  */
-contract AMLSwapHook is BaseHook, Ownable {
+contract AMLSwapHook is BaseHook, Ownable, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using SafeERC20 for IERC20;
@@ -119,12 +120,12 @@ contract AMLSwapHook is BaseHook, Ownable {
         PoolKey calldata key,
         SwapParams calldata params,
         bytes calldata hookData
-    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+    ) internal nonReentrant override returns (bytes4, BeforeSwapDelta, uint24) {
         // AML Compliance Check (recipient optional and can be provided via hookData)
         address recipient = _recipientFromHookData(hookData);
         _performAMLCheck(sender, recipient);
 
-        // Token Conversion (illustrative; production systems should integrate robust pricing/oracle flows)
+        // Token Conversion WARNING: static demo rates only; not safe for production without oracles/slippage/limits
         _handleTokenConversion(sender, key, params);
 
         // No delta or dynamic fee returned by this hook
@@ -136,7 +137,7 @@ contract AMLSwapHook is BaseHook, Ownable {
      * @param sender Address initiating the transaction
      * @param recipient Address receiving the tokens (can be address(0) if not applicable)
      */
-    function _performAMLCheck(address sender, address recipient) internal view {
+    function _performAMLCheck(address sender, address recipient) internal {
         if (blacklisted[sender]) {
             // block sender
             // NOTE: Emitting an event before revert is fine for observability
@@ -145,10 +146,12 @@ contract AMLSwapHook is BaseHook, Ownable {
             // A more gas-optimized approach could omit the event here.
             // For compliance traceability, we keep it.
             // solhint-disable-next-line reason-string
+            emit SwapBlocked(sender, "Sender is blacklisted");
             revertWithLog(sender, "Sender is blacklisted");
         }
 
         if (recipient != address(0) && blacklisted[recipient]) {
+            emit SwapBlocked(recipient, "Recipient is blacklisted");
             revertWithLog(recipient, "Recipient is blacklisted");
         }
     }
@@ -213,7 +216,7 @@ contract AMLSwapHook is BaseHook, Ownable {
     }
 
     /**
-     * @dev Convert authorized token to wINR
+     * @dev Convert authorized token to wINR (DEMO ONLY - static rates, no slippage; not production-safe)
      * @param user Address performing the conversion
      * @param token Address of the token to convert
      * @param amount Amount to convert (can be negative for exact output swaps)

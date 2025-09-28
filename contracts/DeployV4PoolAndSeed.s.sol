@@ -155,10 +155,17 @@ contract DeployV4PoolAndSeed is Script {
         poolManager.initialize(key, sqrtPriceX96);
         console.log("Initialized pool at sqrtPriceX96 = ", sqrtPriceX96);
 
-        // Approve PositionManager to settle token spends
+        // Approve PositionManager to settle token spends (only if needed)
         // (If your PositionManager pulls via permit or callback, adjust accordingly.)
-        IERC20(token0).approve(positionManagerAddr, amount0Max);
-        IERC20(token1).approve(positionManagerAddr, amount1Max);
+        uint256 allowance0 = IERC20(token0).allowance(address(this), positionManagerAddr);
+        if (allowance0 < amount0Max) {
+            // Set to max to avoid repeated approvals
+            IERC20(token0).approve(positionManagerAddr, type(uint256).max);
+        }
+        uint256 allowance1 = IERC20(token1).allowance(address(this), positionManagerAddr);
+        if (allowance1 < amount1Max) {
+            IERC20(token1).approve(positionManagerAddr, type(uint256).max);
+        }
 
         // Mint initial liquidity via batched commands:
         // Sequence: MINT_POSITION (creates negative deltas) -> SETTLE_PAIR (pays tokens)
