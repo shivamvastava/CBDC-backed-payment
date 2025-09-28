@@ -9,6 +9,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 
@@ -80,7 +81,7 @@ contract AMLSwapHookV4Test is Test {
             hooks: bytes21(0)
         });
 
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+        SwapParams memory params = SwapParams({
             zeroForOne: true,
             amountSpecified: int256(1e18),
             sqrtPriceLimitX96: uint160(1) << 96
@@ -88,6 +89,7 @@ contract AMLSwapHookV4Test is Test {
 
         // Expect revert on blacklisted sender
         vm.expectRevert(bytes("AMLSwapHook: Sender is blacklisted"));
+        vm.prank(poolManager);
         hook.beforeSwap(userBlacklisted, key, params, bytes(""));
     }
 
@@ -104,7 +106,7 @@ contract AMLSwapHookV4Test is Test {
             hooks: bytes21(0)
         });
 
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+        SwapParams memory params = SwapParams({
             zeroForOne: true,
             amountSpecified: int256(1e18),
             sqrtPriceLimitX96: uint160(1) << 96
@@ -115,6 +117,7 @@ contract AMLSwapHookV4Test is Test {
 
         // Expect revert on blacklisted recipient
         vm.expectRevert(bytes("AMLSwapHook: Recipient is blacklisted"));
+        vm.prank(poolManager);
         hook.beforeSwap(userApproved, key, params, hookData);
     }
 
@@ -180,7 +183,7 @@ contract AMLSwapHookV4Test is Test {
         });
 
         // amountSpecified > 0 (exact input)
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+        SwapParams memory params = SwapParams({
             zeroForOne: true,
             amountSpecified: int256(fromAmount),
             sqrtPriceLimitX96: uint160(1) << 96
@@ -192,7 +195,8 @@ contract AMLSwapHookV4Test is Test {
         uint256 hookWINRBefore = winr.balanceOf(address(hook));
 
         // Act
-        vm.prank(address(this)); // caller doesn't matter; our hook does not restrict msg.sender to PoolManager in this override
+        // The hook's external beforeSwap in BaseHook is only callable by PoolManager; simulate that sender.
+        vm.prank(poolManager);
         hook.beforeSwap(userApproved, key, params, bytes(""));
 
         // 1:1 conversion expected
