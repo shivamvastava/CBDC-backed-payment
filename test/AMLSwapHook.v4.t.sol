@@ -34,7 +34,7 @@ contract AMLSwapHookV4Test is Test {
     TestToken public tokenIn; // authorized foreign token for conversion example
 
     // Addresses
-    address public poolManager = address(0x00000000000000000000000000000000000POOL); // placeholder non-zero
+    address public poolManager = address(0x0000000000000000000000000000000000000FEE); // placeholder non-zero
     address public owner;
     address public userApproved;
     address public userBlacklisted;
